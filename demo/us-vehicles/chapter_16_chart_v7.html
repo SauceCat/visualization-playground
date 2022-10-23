@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>D3: All vehicles</title>
+		<script src="https://d3js.org/d3.v7.min.js"></script>
+		<style type="text/css">
+
+			* {
+				margin: 0;
+				padding: 0;
+			}
+
+			body {
+				font-family: sans-serif;
+				background-color: #eee;
+			}
+
+			#container {
+				width: 1000px;
+				margin: 25px auto 25px auto;
+				padding: 50px 50px 50px 50px;
+				background-color: white;
+				box-shadow: 0 0 20px #ccc;
+			}
+			
+			h1 {
+				margin-bottom: 25px;
+				font-size: 24px;
+				font-weight: bold;
+			}
+
+			h2 {
+				margin-top: 30px;
+				margin-left: 20px;
+				font-size: 14px;
+			}
+
+			p {
+				margin-bottom: 25px;
+				font-size: 14px;
+				line-height: 18px;
+			}
+
+			button {
+				padding: 15px;
+			}
+
+			#footer p {
+				margin-top: 50px;
+				margin-bottom: 0;
+				font-size: 10px;
+				line-height: 14px;
+				color: gray;
+			}
+
+			#footer p a {
+				color: gray;
+			}
+
+			svg {
+				display:  block;
+				margin-bottom: 10px;
+				background-color: white;
+			}
+
+			.area {
+				stroke: none;
+				cursor: pointer;
+			}
+
+			.area:hover {
+				fill: rgb(175, 240, 91);
+			}
+
+			#backButton {
+				cursor: pointer;
+			}
+
+			#backButton rect {
+				fill: rgb(175, 240, 91);
+			}
+
+			#backButton text {
+				font-family: sans-serif;
+				font-weight: bold;
+				font-size: 14px;
+				fill: black;
+			}
+
+			#backButton:hover rect {
+				fill: rgb(26, 199, 194);
+			}
+
+			#backButton:hover text {
+				fill: white;
+			}
+
+			.unclickable {
+				pointer-events: none;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div id="container">
+
+			<h1>U.S. Electric-Drive Vehicle Sales</h1>
+			
+			<p>Rerum culpa qui libero. Non quidem suscipit facere ea totam. Sed ut reprehenderit non. Consequuntur alias minima qui saepe enim. Voluptatem quia quia eligendi temporibus dolor voluptas voluptatem recusandae. Quia minima delectus aliquid totam voluptatem enim alias quas.<p>
+
+			<div id="chartContainer">
+				<h2>Monthly Number of Electric-Drive Vehicles Sold in the U.S. (by Type): January 2005&ndash;February 2017</h2>
+			</div>
+
+			<p>Reiciendis reiciendis quia labore porro ratione. Asperiores est ipsam voluptate. Itaque in magni qui veritatis aliquam fugiat. Et qui aliquid et. Assumenda qui et quis ut. Dolores aut ea fuga corporis enim. Corporis iusto facere quidem architecto rerum pariatur. Libero nam et cupiditate quibusdam.</p>
+			
+			<p>Est voluptates sint rerum nostrum dignissimos. Accusantium eius voluptate et libero dignissimos. Aspernatur eum asperiores et rerum. Consequatur et in neque accusantium ipsam officiis. Eligendi ex quia praesentium voluptate nihil suscipit.</p>
+
+			<div id="footer">
+				<p><strong>Source:</strong> Data was derived from data compiled by Yan (Joann) Zhou at Argonne National Laboratory, U.S. Department of Energy. See the &rdquo;<a href="https://www.anl.gov/energy-systems/project/light-duty-electric-drive-vehicles-monthly-sales-updates">Light Duty Electric Drive Vehicles Monthly Sales Updates</a>&ldquo; project. Some values are estimates; others have been interpolated for this project.</p>
+			</div>
+
+		</div>
+
+		<script type="text/javascript">
+			
+			var w = 1000;
+			var h = 300;
+			var padding = 20;
+
+			// tracks view state
+			// 0 = default (vehicle types)
+			// 1 = vehicle (of one type)
+			// 2 = vehicle (singular)
+			var viewState = 0;
+			var viewType;
+
+			var dataset, thisTypeDataset, xScale, yScale, xAxis, yAxis, area;
+
+			var parseTime = d3.timeParse("%Y-%m");
+			var formatTime = d3.timeFormat("%Y");
+
+			var key = function(d) {
+				return d.key;
+			};
+
+			var vehicleStack = d3.stack();
+			var typeStack = d3.stack();
+			
+			d3.text("vehicle_sales_data.csv")
+				.then(function(data) {
+
+					// DATA
+					dataset = [];
+
+					var rows = d3.csvParseRows(data);
+
+					for (var i = 3; i < rows.length; i++) {
+
+						dataset[i - 3] = {
+							date: parseTime(rows[i][0])
+						};
+
+						for (var j = 1; j < rows[i].length; j++) {
+
+							var make = rows[0][j];
+							var model = rows[1][j];
+							var type = rows[2][j];
+							var makeModel = make + " " + model;
+							var sales = rows[i][j];
+
+							if (sales) {
+								sales = parseInt(sales);
+							} else {
+								sales = 0;
+							}
+
+							dataset[i - 3][makeModel] = {
+								"make": make,
+								"model": model,
+								"type": type,
+								"sales": sales
+							};
+
+						}
+
+					}
+
+					var keys = Object.keys(dataset[0]).slice(1);
+					vehicleStack.keys(keys)
+							.value(function value(d, key) {
+								return d[key].sales;
+							});
+					var vehicleSeries = vehicleStack(dataset);
+
+					typeDataset = [];
+
+					for (var i = 3; i < rows.length; i++) {
+
+						typeDataset[i - 3] = {
+							date: parseTime(rows[i][0]),
+							"HEV": 0,
+							"PHEV": 0,
+							"BEV": 0,
+							"FCEV": 0
+						};
+
+						for (var j = 1; j < rows[i].length; j++) {
+
+							var type = rows[2][j];
+							var sales = rows[i][j];
+
+							if (sales) {
+								sales = parseInt(sales);
+							} else {
+								sales = 0;
+							}
+							typeDataset[i - 3][type] += sales;
+
+						}
+
+					}
+
+					var types = ["HEV", "PHEV", "BEV", "FCEV"];
+					typeStack.keys(types);
+					var typeSeries = typeStack(typeDataset);
+
+					// CHART
+					xScale = d3.scaleTime()
+								.domain([
+									d3.min(dataset, function(d) { return d.date; }),
+									d3.max(dataset, function(d) { return d.date; })
+								])
+								.range([padding, w - padding * 2]);
+
+					yScale = d3.scaleLinear()
+								.domain([
+									0,
+									d3.max(typeDataset, function(d) {
+										var sum = 0;
+
+										for (var i = 0; i < types.length; i++) {
+											sum += d[types[i]];
+										}
+
+										return sum;
+									})
+								])
+								.range([h - padding, padding / 2])
+								.nice();
+
+					xAxis = d3.axisBottom()
+								.scale(xScale)
+								.ticks(10)
+								.tickFormat(formatTime);
+
+					yAxis = d3.axisRight()
+								.scale(yScale)
+								.ticks(5);
+
+					area = d3.area()
+								.x(function(d) { return xScale(d.data.date); })
+								.y0(function(d) { return yScale(d[0]); })
+								.y1(function(d) { return yScale(d[1]); });
+
+					var svg = d3.select("#chartContainer")
+								.append("svg")
+								.attr("width", w)
+								.attr("height", h);
+
+					svg.append("g")
+						.attr("id", "vehicles");
+
+					svg.append("g")
+						.attr("id", "types")
+						.selectAll("path")
+						.data(typeSeries, key)
+						.enter()
+						.append("path")
+						.attr("class", "area")
+						.attr("opacity", 1)
+						.attr("d", area)
+						.attr("fill", function(d) {
+
+							var thisType = d.key;
+							var color;
+
+							switch (thisType) {
+								case "HEV":
+									color = "rgb(110, 64, 170)";
+									break;
+								case "PHEV":
+									color = "rgb(76, 110, 219)";
+									break;
+								case "BEV":
+									color = "rgb(35, 171, 216)";
+									break;
+								case "FCEV":
+									color = "rgb(29, 223, 163)";
+									break;
+							}
+							return color;
+
+						})
+						.on("click", function(e, d) {
+							viewState++;
+
+							// TYPES
+							var thisType = d.key;
+							viewType = thisType;
+							thisTypeDataset = [];
+
+							for (var i = 0; i < typeDataset.length; i++) {
+								thisTypeDataset[i] = {
+									date: typeDataset[i].date,
+									HEV: 0,
+									PHEV: 0,
+									BEV: 0,
+									FCEV: 0,
+									[thisType]: typeDataset[i][thisType]
+								}
+							}
+
+							var thisTypeSeries = typeStack(thisTypeDataset);
+							var paths = d3.selectAll("#types path")
+											.data(thisTypeSeries, key)
+											.classed("unclickable", true);
+
+							var areaTransitions = paths.transition()
+														.duration(1000)
+														.attr("d", area);
+
+							yScale.domain([
+								0,
+								d3.max(thisTypeDataset, function(d) { return d[thisType]; })
+							]);
+
+							areaTransitions.transition()
+											.delay(200)
+											.on("start", function() {
+												d3.select("g.axis.y")
+													.transition()
+													.duration(1000)
+													// yAxis depends on yScale
+													.call(yAxis);
+											})
+											.duration(1000)
+											.attr("d", area)
+											.transition()
+											.on("start", function() {
+
+												d3.selectAll("g#vehicles path")
+													.attr("opacity", 1);
+											})
+											.duration(1000)
+											.attr("opacity", 0)
+											.on("end", function(d, i) {
+												// reveal back button, only once
+												if (i == 0) {
+													toggleBackButton();
+												}
+											});
+
+							var keysAll = Object.keys(dataset[0]).slice(1);
+							var keysOfThisType = [];
+							for (var i = 0; i < keysAll.length; i++) {
+								if (dataset[0][keysAll[i]].type == thisType) {
+									keysOfThisType.push(keysAll[i]);
+								}
+							}
+
+							vehicleStack.keys(keysOfThisType)
+										.value(function value(d, key) {
+											return d[key].sales;
+										});
+
+							var vehicleSeries = vehicleStack(dataset);
+
+							svg.select("g#vehicles")
+								.selectAll("path")
+								.data(vehicleSeries, key)
+								.enter()
+								.append("path")
+								.attr("class", "area")
+								.attr("opacity", 0)
+								.attr("d", area)
+								.attr("fill", function(d, i) {
+
+									var thisKey = d.key;
+									var thisType = d[0].data[thisKey].type;
+
+									var spread = 0.2;
+									var startingPoint;
+
+									switch(thisType) {
+										case "HEV":
+											startingPoint = 0;
+											break;
+										case "PHEV":
+											startingPoint = 0.2;
+											break;
+										case "BEV":
+											startingPoint = 0.4;
+											break;
+										case "FCEV":
+											startingPoint = 0.6;
+											break;
+									}
+
+									var numVehicles = keysOfThisType.length;
+									var normalized = startingPoint + ((i / numVehicles) * spread);
+									return d3.interpolateCool(normalized);
+								})
+								.on("click", function(e, d) {
+									viewState++;
+									toggleBackButton();
+
+									var thisType = d.key;
+									d3.selectAll("g#vehicles path")
+										.classed("unclickable", true)
+										.filter(function(d) {
+											if (d.key != thisType) {
+												return true;
+											}
+										})
+										.transition()
+										.duration(1000)
+										.attr("opacity", 0);
+
+									var singleVehicleArea = d3.area()
+																.x(function(d) { return xScale(d.data.date); })
+																.y0(function(d) { return yScale(0); })
+																.y1(function(d) { return yScale(d.data[thisType].sales); });
+
+									var thisAreaTransition = d3.select(this)
+																.transition()
+																.delay(1000)
+																.duration(1000)
+																.attr("d", singleVehicleArea);
+
+									yScale.domain([
+										0,
+										d3.max(dataset, function(d) {
+											return d[thisType].sales;
+										})
+									]);
+
+									thisAreaTransition.transition()
+														.duration(1000)
+														.attr("d", singleVehicleArea)
+														.on("start", function() {
+															d3.select("g.axis.y")
+																.transition()
+																.duration(1000)
+																.call(yAxis);
+														})
+														.on("end", function() {
+															d3.select(this).classed("unclickable", false);
+															toggleBackButton();
+														});
+								})
+								.append("title")
+								.text(function(d) {
+									return d.key;
+								});
+
+						})
+						.append("title")
+						.text(function(d) {
+							return d.key;
+						});
+
+					svg.append("g")
+						.attr("class", "axis x")
+						.attr("transform", "translate(0," + (h - padding) + ")")
+						.call(xAxis);
+
+					svg.append("g")
+						.attr("class", "axis y")
+						.attr("transform", "translate(" + (w - padding * 2) + ",0)")
+						.call(yAxis);
+
+					// BACK BUTTON
+					var backButton = svg.append("g")
+										.attr("id", "backButton")
+										.attr("opacity", 0)
+										.classed("unclickable", true)
+										.attr("transform", "translate(" + xScale.range()[0] + "," + yScale.range()[1] + ")");
+
+					backButton.append("rect")
+								.attr("x", 0)
+								.attr("y", 0)
+								.attr("rx", 5)
+								.attr("ry", 5)
+								.attr("width", 70)
+								.attr("height", 30);
+
+					backButton.append("text")
+								.attr("x", 7)
+								.attr("y", 20)
+								.html("&larr; Back");
+
+					backButton.on("click", function() {
+						toggleBackButton();
+
+						if (viewState == 1) {
+							viewState--;
+
+							var typeAreaTransitions = d3.selectAll("g#types path")
+														.data(typeSeries, key)
+														.transition()
+														.duration(250)
+														.attr("opacity", 1)
+														.on("end", function() {
+															d3.selectAll("g#vehicles path").remove();
+														});
+
+							yScale.domain([
+								0,
+								d3.max(typeDataset, function(d) {
+									var sum = 0;
+									for (var i = 0; i < types.length; i++) {
+										sum += d[types[i]];
+									}
+									return sum;
+								})
+							]);
+
+							typeAreaTransitions.transition()
+												.duration(1000)
+												.on("start", function() {
+													d3.select("g.axis.y")
+														.transition()
+														.duration(1000)
+														.call(yAxis);
+												})
+												.attr("d", area)
+												.on("end", function() {
+													d3.select(this).classed("unclickable", false);
+												});
+						} else if (viewState == 2) {
+							viewState--;
+
+							yScale.domain([
+								0,
+								d3.max(thisTypeDataset, function(d) {
+									return d[viewType];
+								})
+							]);
+
+							d3.selectAll("g#vehicles path")
+								.transition()
+								.on("start", function() {
+									d3.select("g.axis.y")
+										.transition()
+										.duration(1000)
+										.call(yAxis);
+								})
+								.duration(1000)
+								.attr("d", area)
+								.transition()
+								.duration(1000)
+								.attr("opacity", 1)
+								.on("end", function(d, i) {
+									d3.select(this).classed("unclickable", false);
+
+									if (i == 0) {
+										toggleBackButton();
+									}
+								});
+						}
+
+					});
+
+				});
+
+			var toggleBackButton = function() {
+				var backButton = d3.select("#backButton");
+				var hidden = backButton.classed("unclickable");
+
+				if (hidden) {
+
+					var buttonText = "&larr; Back to ";
+
+					if (viewState == 1) {
+						buttonText += "all types";
+					} else if (viewState == 2) {
+						buttonText += "all " + viewType + " vehicles";
+					}
+
+					backButton.select("text").html(buttonText);
+					var rectWidth = Math.round(backButton.select("text").node().getBBox().width + 16);
+					backButton.select("rect").attr("width", rectWidth);
+
+					backButton.classed("unclickable", false)
+								.transition()
+								.duration(500)
+								.attr("opacity", 1);
+				} else {
+					backButton.classed("unclickable", true)
+								.transition()
+								.duration(200)
+								.attr("opacity", 0);
+				}
+			};
+
+
+		</script>
+	</body>
+</html>

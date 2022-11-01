@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Dear Data: Week 05</title>
+		<script src="https://d3js.org/d3.v7.min.js"></script>
+		<style type="text/css">
+
+			#header p {
+				font-family: "helvetica";
+				margin-top: 50px;
+				margin-bottom: 0;
+				font-size: 12px;
+				line-height: 14px;
+				color: #4d4d4d;
+			}
+
+			#header p a {
+				color: gray;
+			}
+
+			#tooltip {
+				position: absolute;
+				width: auto;
+				height: auto;
+				padding: 10px;
+				background-color: white;
+				pointer-events: none;
+				border-width: 1px;
+				border-style: solid;
+			}
+
+			#tooltip.hidden {
+				display: none;
+			}
+
+			#tooltip span {
+				font-weight: bold;
+			}
+
+			#tooltip p {
+				margin: 0;
+				font-family: "helvetica";
+				font-size: 10px;
+			}
+
+			#fileInput {
+				margin-left: 200px;
+				margin-top: 50px;
+				font-family: "helvetica";
+				font-size: 12px;
+			}
+
+			.input {
+				border: 1px solid rgba(27, 31, 35, 0.15);
+				border-radius: 6px;
+				cursor: pointer;
+				display: inline-block;
+				font-family: Helvetica, Arial;
+				font-size: 14px;
+				padding: 6px 16px;
+				position: relative;
+			}
+
+			#submit {
+				border: none;
+				background-color: #abdda4;
+			}
+			
+		</style>
+	</head>
+	<body>
+		<div id="header">
+			<p>I plan to implement some of the great visualization ideas from 
+				<span><a href="http://www.dear-data.com/" target="blank">Dear Data</a></span> 
+				using D3.js, <br>so the story, as well as the methodology of collecting personal data points, 
+				can be reused for everyone.
+			</p>
+		</div>
+		<div id="container">
+			<div id="chartTitle"></div>
+			<div id="fileInput">
+				<input class="input" type="file" accept=".csv" id="yourData" name="yourData" />
+				<button class="input" onclick="loadFile()" id="submit">Visualize Your Data!</button>
+			</div>
+			<div id="chartLegend"></div>
+			<div id="chartContent">
+				<div id="tooltip" class="hidden">
+					<p>Weekday: <span id="weekday"></span></p>
+					<p>Cost: <span id="cost"></span></p>
+					<p>Purchase: <span id="purchase"></span></span></p>
+					<p>Necessary: <span id="necessary"></span></span></p>
+					<p>Payment: <span id="payment"></span></span></p>
+				</div>
+			</div>
+		</div>
+
+		<script type="text/javascript">
+
+			var width = 1280, gap = 30;
+			var outerRadius = 25, mainRadius = 20, innerRadius = 5;
+			var iconArea = mainRadius * 2 + gap;
+			var contentIconMarginX = 150;
+			var marginX = 200, marginY = 80, halfX = width / 2;
+			var itemsPerRow = Math.floor((width - contentIconMarginX - marginX) / iconArea);
+			
+			var colors = {
+				green: "#66c2a5",
+				pink: "#de77ae",
+				red: "#d53e4f",
+				blue: "#6baed6",
+				lightGreen: "#abdda4",
+				black: "#000000"
+			};
+			var circleStrokeWidth = 2;
+			var legendTextGap = 12;
+			var weekdays = {
+				1: "Monday",
+				2: "Tuesday",
+				3: "Wednesday",
+				4: "Thursday",
+				5: "Friday",
+				6: "Saturday",
+				7: "Sunday"
+			};
+
+			d3.select("#header").style("margin-left", marginX + "px");
+
+			var chartTitle = d3.select("#chartTitle")
+								.append("svg")
+								.attr("width", width);
+
+			// TITLE: start
+			var title = chartTitle.append("g")
+								.attr("transform", "translate(" + marginX + "," + marginY + ")");
+			var titleMain = title.append("text")
+								.attr("x", 0)
+								.attr("y", 0)
+								.attr("font-size", 50)
+								.attr("font-weight", "bold")
+								.call(formatText)
+								.text("DEAR DATA");
+			var titleMainWidth = Math.round(titleMain.node().getBBox().width);
+			var titleMainHeight = Math.round(titleMain.node().getBBox().height);
+
+			var titleSide = title.append("text")
+								.attr("x", titleMainWidth + gap / 2)
+								.attr("y", 0)
+								.attr("font-size", 25)
+								.call(formatText)
+								.text(" - WEEK 05");
+
+			var titleSub = title.append("text")
+								.attr("x", 0)
+								.attr("y", titleMainHeight)
+								.attr("font-size", 20)
+								.call(formatText)
+								.text("A WEEK OF THINGS I BUY");
+			var titleSubHeight = Math.round(titleSub.node().getBBox().height);
+			chartTitle.attr("height", marginY + titleMainHeight + titleSubHeight);
+			// TITLE: end
+
+			// LEGEND: start
+			var chartLegend = d3.select("#chartLegend")
+								.append("svg")
+								.attr("width", width);
+			var defs, iconColors;
+			var	icons = {
+				green: "asserts/green.svg",
+				pink: "asserts/pink.svg",
+				red: "asserts/red.svg",
+				blue: "asserts/blue.svg",
+				lightGreen: "asserts/light_green.svg"
+			};
+			defineLegendIcons();
+			var legends = chartLegend.append("g")
+									.attr("transform", "translate(" + marginX + "," + marginY + ")");
+
+			// purchase
+			var purchaseLegend = legends.append("g");
+			var purchaseTitle = addLegendTitle(purchaseLegend, 0, 0, "TYPE OF PURCHASE");
+			var purchaseTitleHeight = Math.round(purchaseTitle.node().getBBox().height);
+			var purchaseColors = {
+				food: "green",
+				transport: "pink",
+				leisure: "red",
+				personal: "blue",
+				alcohol: "lightGreen"
+			}
+			var purchaseTypes = Object.keys(purchaseColors);
+			var purchaseIcons = {};
+			var purchaseIconsY = purchaseTitleHeight + gap + mainRadius;
+			var purchaseIconsTextY = purchaseIconsY + mainRadius + gap;
+			for (var i = 0; i < purchaseTypes.length; i++) {
+				var thisType = purchaseTypes[i];
+				var x = getLegendIconX(i);
+				var colorName = purchaseColors[thisType];
+				purchaseIcons[thisType] = "url(#" + colorName + ")";
+				var thisIcon = addLegendIcon(purchaseLegend, colors[colorName], circleStrokeWidth, mainRadius, x, purchaseIconsY);
+				thisIcon.style("fill", purchaseIcons[thisType]);
+				addLegendText(purchaseLegend, [thisType], x, purchaseIconsTextY);
+			}
+
+			// necessary
+			var necessaryLegend = legends.append("g");
+			var necessaryLegendY = purchaseIconsTextY + gap * 2;
+			var necessaryTitle = addLegendTitle(necessaryLegend, 0, necessaryLegendY, "NECESSARY OF PURCHASE");
+			var necessaryTitleHeight = Math.round(necessaryTitle.node().getBBox().height);
+			var necessaryTypes = [
+				{
+					necessary: 1,
+					text: ["necessary", "for life"]
+				},
+				{
+					necessary: 0,
+					text: ["not", "necessary", "just for fun"]
+				}
+			];
+			var necessaryIconsY = necessaryLegendY + necessaryTitleHeight + gap + mainRadius;
+			var necessaryIconsTextY = necessaryIconsY + mainRadius + gap;
+			var necessaryColor = "pink";
+			for (var i = 0; i < necessaryTypes.length; i++) {
+				var thisType = necessaryTypes[i].necessary;
+				var x = getLegendIconX(i);
+				var thisIcon = addLegendIcon(necessaryLegend, colors[necessaryColor], circleStrokeWidth, mainRadius, x, necessaryIconsY);
+				thisIcon.style("fill", function() {
+					if (thisType) {
+						return "url(#" + necessaryColor + ")";
+					} else {
+						return "None";
+					}
+				});
+				addLegendText(necessaryLegend, necessaryTypes[i].text, x, necessaryIconsTextY);
+			}
+
+			// payment
+			var paymentLegend = legends.append("g");
+			var paymentTitle = addLegendTitle(paymentLegend, halfX, 0, "PAYMENT TYPE");
+			var paymentTypes = ["cash", "card"];
+			var paymentIconsY = purchaseIconsY;
+			var paymentIconsTextY = purchaseIconsTextY;
+			var paymentColor = "green";
+			var paymentColorInner = "black";
+			for (var i = 0; i < paymentTypes.length; i++) {
+				var thisType = paymentTypes[i];
+				var x = halfX + getLegendIconX(i);
+				var thisIcon = addLegendIcon(paymentLegend, colors[paymentColor], circleStrokeWidth, mainRadius, x, paymentIconsY);
+				thisIcon.style("fill", "None");
+				var thisIconInner = addLegendIcon(paymentLegend, colors[paymentColorInner], 1, innerRadius, x, paymentIconsY);
+				thisIconInner.style("fill", function() {
+					if (thisType == "cash") {
+						return "None";
+					} else {
+						return paymentColorInner;
+					}
+				});
+				addLegendText(paymentLegend, [thisType], x, paymentIconsTextY);
+			}
+
+			// cost
+			var costLegend = legends.append("g");
+			var costLegendY = necessaryLegendY;
+			var costTitle = addLegendTitle(costLegend, halfX, costLegendY, "COST OF ITEM");
+			var costTypes = [
+				{
+					strokeWidth: 0,
+					text: ["under 10"]
+				},
+				{
+					strokeWidth: 2,
+					text: ["10 - 50"]
+				},
+				{
+					strokeWidth: 3,
+					text: ["50+"]
+				}
+			];
+			var costIconsY = necessaryIconsY;
+			var costIconsTextY = costIconsY + mainRadius + gap;
+			var costColor = "green";
+			var costColorOuter = "black"
+			for (var i = 0; i < costTypes.length; i++) {
+				var strokeWidth = costTypes[i].strokeWidth;
+				var x = halfX + getLegendIconX(i);
+				var thisIcon = addLegendIcon(costLegend, colors[costColor], circleStrokeWidth, mainRadius, x, costIconsY);
+				thisIcon.style("fill", "url(#" + costColor + ")");
+				var thisIconOuter = addLegendIcon(costLegend, colors[costColorOuter], strokeWidth, outerRadius, x, costIconsY);
+				thisIconOuter.style("fill", "None");
+				addLegendText(costLegend, costTypes[i].text, x, costIconsTextY);
+			}
+			chartLegend.attr("height", costIconsTextY + marginY * 2);
+			// LEGEND: end
+
+		    // default: read from sample file
+		    d3.csv("data/data.csv", rowConverter).then(function(csvData) {
+		    	drawChart(csvData);
+		    });
+
+		    // read from file input
+		    var reader = new FileReader();
+
+		    function loadFile() {
+		    	var file = document.querySelector("#yourData").files[0];
+		    	reader.addEventListener("load", parseFile, false);
+		    	if (file) {
+		    		reader.readAsText(file);
+		    	}
+		    }
+
+		    function parseFile() {
+		    	var fileData = d3.csvParse(reader.result, rowConverter, function(d) {
+		    		return d;
+		    	})
+		    	drawChart(fileData);
+		    }
+
+			function drawChart(csvData) {
+				// clean up
+				d3.select("#chartContent svg").remove();
+
+				var temp = {};
+				for (var i = 0; i < csvData.length; i++) {
+					var day = csvData[i].day;
+					if (!(day in temp)) {
+						temp[day] = [];
+					}
+					temp[day].push(csvData[i]);
+				}
+
+				var data = [];
+				for (var i = 1; i <= 7; i++) {
+					data.push(temp[i]);
+				}
+
+				var chartContent = d3.select("#chartContent")
+									.append("svg")
+									.attr("width", width);
+				var content = chartContent.append("g")
+										.attr("transform", "translate(" + marginX + "," + gap + ")");
+
+				// draw icons
+				totalRows = 0;
+				for (var i = 0; i < data.length; i++) {
+					var thisData = data[i];
+					var thisRow = content.append("g");
+					var thisOffset = totalRows * iconArea;
+
+					// weekday lines
+					if (i > 0) {
+						content.append("line")
+									.style("stroke", colors.black)
+									.style("stroke-width", 1)
+									.style("stroke-opacity", 0.5)
+									.style("stroke-dasharray", "2,2")
+									.attr("x1", 0)
+									.attr("y1", thisOffset)
+									.attr("x2", width)
+									.attr("y2", thisOffset);
+					}
+					var thisTotalRows = Math.ceil(thisData.length / itemsPerRow);
+					totalRows += thisTotalRows;
+
+					for (var j = 0; j < thisData.length; j++) {
+						thisData[j]["cx"] = contentIconMarginX + (j % itemsPerRow) * iconArea + mainRadius;
+						thisData[j]["cy"] = thisOffset + Math.floor(j / itemsPerRow) * iconArea + mainRadius + gap / 2;
+					}
+					var thisIcons = thisRow.selectAll("g")
+											.data(thisData)
+											.enter()
+											.append("g");
+
+					drawIcons(thisIcons, "main");
+					drawIcons(thisIcons, "inner");
+					drawIcons(thisIcons, "outer");
+					drawIconBox(thisIcons, iconArea);
+
+					// weekday text
+					var thisHeight = Math.ceil(thisData.length / itemsPerRow) * iconArea;
+					content.append("text")
+								.attr("x", 0)
+								.attr("y", thisOffset + thisHeight / 2)
+								.call(formatWeekdayText)
+								.text(weekdays[i + 1].toUpperCase());
+				}
+				var chartHeight = totalRows * iconArea + marginY + gap;
+				chartContent.attr("height", chartHeight);
+
+				d3.selectAll(".icon")
+					.on("mouseover", function(e, d) {
+						var thisIcon = d3.select(this).node().getBoundingClientRect();
+						var x = thisIcon.left;
+						var y = thisIcon.top;
+						var offset = iconArea / 3 * 2;
+
+						var tooltip = d3.select("#tooltip")
+										.style("left", x + offset + "px")
+										.style("top", window.scrollY + y + offset + "px");
+
+						tooltip.select("#weekday").text(weekdays[d.day]);
+						tooltip.select("#cost").text(d.cost);
+						tooltip.select("#necessary").text(function() {
+							if (d.necessary) {
+								return "YES"
+							} 
+							return "NO"
+						});
+						tooltip.select("#purchase").text(d.purchase);
+						tooltip.select("#payment").text(d.payment);
+						tooltip.classed("hidden", false);
+						tooltip.style("color", colors.black)
+								.style("border-color", colors[purchaseColors[d.purchase]]);
+
+					})
+					.on("mouseout", function() {
+						d3.select("#tooltip").classed("hidden", true);
+					});
+			}
+
+			function rowConverter(d, i, cols) {
+				var row = {
+					day: +d.day,
+					purchase: d.purchase,
+					payment: d.payment,
+					necessary: +d.necessary,
+					cost: +d.cost
+				};
+				return row;
+			}
+
+			function formatText(g) {
+				return g.attr("text-anchor", "start")
+						.attr("dominant-baseline", "central")
+						.attr("font-family", "helvetica")
+						.attr("fill", colors.black);
+			}
+
+			function formatLegendTitle(g) {
+				return g.call(formatText)
+						.attr("font-size", 15)
+						.attr("font-weight", "bold");
+			}
+
+			function getLegendIconX(i) {
+				return gap / 2 + i * (mainRadius * 2 + gap) + mainRadius;
+			}
+
+			function formatLegendText(g) {
+				return g.call(formatText)
+						.attr("text-anchor", "middle")
+						.attr("font-size", 10);
+			}
+
+			function formatWeekdayText(g) {
+				return g.call(formatText)
+						.attr("font-size", 11);
+			}
+
+			function addLegendTitle(legend, x, y, text) {
+				return legend.append("text")
+							.attr("x", x)
+							.attr("y", y)
+							.call(formatLegendTitle)
+							.text(text);
+			}
+
+			function addLegendIcon(legend, strokeColor, strokeWidth, r, x, y) {
+				return legend.append("circle")
+							.style("stroke", strokeColor)
+							.style("stroke-width", strokeWidth)
+							.attr("r", r)
+							.attr("cx", x)
+							.attr("cy", y);
+			}
+
+			function addLegendText(legend, text, x, y) {
+				for (var i = 0; i < text.length; i++) {
+					legend.append("text")
+							.attr("x", x)
+							.attr("y", y + legendTextGap * i)
+							.call(formatLegendText)
+							.text(text[i].toUpperCase());
+				}
+			}
+
+			function defineLegendIcons() {
+				defs = chartLegend.append("defs");
+				iconColors = Object.keys(icons);
+				for (var i = 0; i < iconColors.length; i++) {
+					defs.append("pattern")
+						.attr("id", iconColors[i])
+						.attr("width", 1)
+						.attr("height", 1)
+						.attr("patternContentUnits", "objectBoundingBox")
+						.append("image")
+						.attr("width", 1)
+						.attr("height", 1)
+						.attr("xlink:href", icons[iconColors[i]])
+						.attr("preserveAspectRatio", "xMinYMin slice");
+				}
+			}
+
+			function fillMain(d) {
+				if (d.necessary) {
+					return purchaseIcons[d.purchase];
+				} else {
+					return "None";
+				}
+			}
+
+			function fillOuter(d) {
+				var strokeWidth;
+				if (d.cost < 10) {
+					strokeWidth = 0
+				} else if (d.cost < 50) {
+					strokeWidth = 2;
+				} else {
+					strokeWidth = 3;
+				}
+				return strokeWidth;
+			}
+
+			function fillInner(d) {
+				if (d.payment == "cash") {
+					return "None";
+				} else {
+					return paymentColorInner;
+				}
+			}
+
+			function drawIcons(thisIcons, className) {
+				var classMap = {
+					"main": {
+						stroke: function(d) {
+							return colors[purchaseColors[d.purchase]];
+						},
+						strokeWidth: circleStrokeWidth,
+						fill: fillMain,
+						radius: mainRadius
+					},
+					"inner": {
+						stroke: colors.black,
+						strokeWidth: 1,
+						fill: fillInner,
+						radius: innerRadius
+					},
+					"outer": {
+						stroke: colors.black,
+						strokeWidth: fillOuter,
+						fill: "None",
+						radius: outerRadius
+					}
+				};
+				thisIcons.append("circle")
+							.style("stroke", classMap[className].stroke)
+							.style("stroke-width", classMap[className].strokeWidth)
+							.style("fill", classMap[className].fill)
+							.attr("class", className)
+							.attr("r", classMap[className].radius)
+							.attr("cx", function(d) {
+								return d.cx;
+							})
+							.attr("cy", function(d) {
+								return d.cy;
+							});
+			}
+
+			function drawIconBox(thisIcons, iconArea) {
+				thisIcons.append("rect")
+							.attr("x", function(d) {
+								return d.cx - iconArea / 2;
+							})
+							.attr("y", function(d) {
+								return d.cy - iconArea / 2;
+							})
+							.attr("width", iconArea)
+							.attr("height", iconArea)
+							.attr("opacity", 0)
+							.attr("class", "icon");
+			}
+		</script>
+	</body>
+</html>

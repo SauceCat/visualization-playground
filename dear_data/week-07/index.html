@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Dear Data: Week 07</title>
+		<script src="https://d3js.org/d3.v7.min.js"></script>
+		<style type="text/css">
+			:root {
+				--fontFamily: Helvetica, Arial, sans-serif;
+			}
+
+			#header p {
+				font-family: var(--fontFamily);
+				margin-top: 50px;
+				margin-bottom: 0;
+				font-size: 12px;
+				line-height: 14px;
+				color: #4d4d4d;
+			}
+
+			#header p a {
+				color: gray;
+			}
+
+			#fileInput {
+				margin-top: 50px;
+				font-family: var(--fontFamily);
+				font-size: 12px;
+			}
+
+			.input {
+				border: 1px solid rgba(27, 31, 35, 0.15);
+				border-radius: 6px;
+				cursor: pointer;
+				display: inline-block;
+				font-family: var(--fontFamily);
+				font-size: 14px;
+				padding: 6px 16px;
+				position: relative;
+			}
+
+			#submit {
+				border: none;
+				background-color: #74c69d;
+			}
+
+			.sort {
+				border: none;
+				background-color: #000000;
+				color: #FFFFFF;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div id="header">
+			<p>I plan to implement some of the great visualization ideas from 
+				<span><a href="http://www.dear-data.com/" target="blank">Dear Data</a></span> 
+				using D3.js, <br>so the story, as well as the methodology of collecting personal data points, 
+				can be reused for everyone.
+			</p>
+		</div>
+		<div id="chart">
+			<div id="chartTitle"></div>
+			<div id="fileInput">
+				<input class="input" type="file" accept=".csv" id="yourData" name="yourData" />
+				<button class="input" onclick="loadFile()" id="submit">Visualize Your Data!</button>
+				<button class="input sort" onclick="sortChart()" id="type">Sort By Type</button>
+				<button class="input sort" onclick="shuffleChart()" id="random">Randomize</button>
+			</div>
+			<div id="chartLegend"></div>
+			<div id="chartContent">
+				<div id="tooltip" class="hidden">
+				</div>
+			</div>
+		</div>
+
+		<script type="text/javascript">
+
+			var width = 1200, gap = 30;
+			var marginX = 200, marginY = 80;
+			var arcLineStrokeWidth = 2;
+			var currData;
+
+			var colors = {
+				black: "#000000",
+				lightGreen: "#74c69d",
+				red: "#e63946",
+				pink: "#ff99ac",
+				darkBlue: "#22577a",
+				orange: "#f46d43",
+				lightBlue: "#48cae4",
+				grey: "#878787",
+				yellow: "#f6bd60",
+				darkGreen: "#40916c"
+			};
+
+			var complaintColors = {
+				weather: "lightGreen",
+				health: "red",
+				friends: "pink",
+				family: "darkBlue",
+				society: "orange",
+				work: "lightBlue",
+				transport: "grey",
+				myself: "yellow",
+				strangers: "darkGreen"
+			}
+
+			d3.select("#header").style("margin-left", marginX + "px");
+			d3.select("#fileInput").style("margin-left", marginX + "px");
+
+			// TITLE: start
+			d3.select("#chart").style("margin-top", marginY + "px");
+			var chartTitle = d3.select("#chartTitle")
+								.append("svg")
+								.attr("width", width);
+
+			var title = chartTitle.append("g")
+								.attr("transform", "translate(" + marginX + ",0)");
+			var titleMain = title.append("text")
+								.attr("x", 0)
+								.attr("y", 0)
+								.attr("font-size", 50)
+								.attr("font-weight", "bold")
+								.call(formatText)
+								.text("DEAR DATA");
+			var titleMainWidth = Math.round(titleMain.node().getBBox().width);
+			var titleMainHeight = Math.round(titleMain.node().getBBox().height);
+
+			var titleSide = title.append("text")
+								.attr("x", titleMainWidth + gap / 2)
+								.attr("y", titleMainHeight / 3)
+								.attr("font-size", 25)
+								.call(formatText)
+								.attr("dominant-baseline", "central")
+								.text(" - WEEK 07");
+
+			var titleSub = title.append("text")
+								.attr("x", 0)
+								.attr("y", titleMainHeight)
+								.attr("font-size", 20)
+								.call(formatText)
+								.text("A WEEK OF COMPLAINTS");
+			var titleSubHeight = Math.round(titleSub.node().getBBox().height);
+			chartTitle.attr("height", titleMainHeight + titleSubHeight);
+			// TITLE: end
+
+			// LEGEND: start
+			d3.select("#chartLegend")
+				.style("margin-top", marginY + "px");
+			var chartLegend = d3.select("#chartLegend")
+								.append("svg")
+								.attr("width", width);
+
+			var legends = chartLegend.append("g")
+									.attr("transform", "translate(" + marginX + ",0)");
+			var legendTitle = legends.append("g")
+									.append("text")
+									.call(formatLegendTitle)
+									.text("TYPE OF COMPLAINT");
+
+			var legendTitleHeight = Math.round(legendTitle.node().getBBox().height) + gap;
+			var itemsPerRow = 5, colWidth = 150, rowHeight = 22;
+			var complaints = Object.keys(complaintColors);
+			var legendIcons = legends.append("g");
+			for (var i = 0; i < complaints.length; i++) {
+				var row = parseInt(Math.ceil((i + 1) / itemsPerRow));
+				var col = i % itemsPerRow;
+				legendIcons.append("text")
+							.attr("x", col * colWidth)
+							.attr("y", legendTitleHeight + rowHeight * row)
+							.call(formatLegendText)
+							.attr("fill", colors[complaintColors[complaints[i]]])
+							.text(complaints[i].toUpperCase());
+			}
+			var legendHeight = legendTitleHeight + rowHeight * parseInt(Math.ceil(complaints.length / itemsPerRow));
+			chartLegend.attr("height", legendHeight + gap);
+			// LEGEND: end
+
+			d3.select("#chartContent")
+				.style("margin-top", marginY + "px");
+			// chart frame
+			var chartHeight = 900, axisFrameHeight = 100, axisTextHeight = 100;
+			var chartContent = d3.select("#chartContent")
+									.append("svg")
+									.attr("width", width)
+									.attr("height", chartHeight);
+
+			var frame = chartContent.append("g")
+									.attr("transform", "translate(" + marginX + ",0)");
+			var frameWidth = width - marginX - gap;
+			var frameGrid = frameWidth / 6;
+
+			var x1 = frameGrid * 2, x2 = frameWidth;
+			var y1 = 0, y2 = chartHeight - (axisFrameHeight + axisTextHeight);
+			var y3 = chartHeight - axisTextHeight - axisFrameHeight / 2;
+			var vLine1 = { x1: x1, y1: y1, x2: x1, y2: y2 };
+			var vLine2 = { x1: x2, y1: y1, x2: x2, y2: y2 };
+			var hLine = { x1: 0, y1: y3, x2: x2 + gap, y2: y3 };
+			createFrameLine(frame, vLine1, 2);
+			createFrameLine(frame, vLine2, 2);
+			createFrameLine(frame, hLine, 1).attr("stroke-dasharray", "2,2");
+
+			var x3_1 = frameGrid, x3_2 = frameGrid * 3, x3_3 = frameGrid * 5;
+			var y3_1 = y2, y3_2 = chartHeight - axisTextHeight;
+			var vLine3_1 = { x1: x3_1, y1: y3_1, x2: x3_1, y2: y3_2 };
+			var vLine3_2 = { x1: x3_2, y1: y3_1, x2: x3_2, y2: y3_2 };
+			var vLine3_3 = { x1: x3_3, y1: y3_1, x2: x3_3, y2: y3_2 };
+			createFrameLine(frame, vLine3_1, 1);
+			createFrameLine(frame, vLine3_2, 1);
+			createFrameLine(frame, vLine3_3, 1);
+
+			// texts under three vertical lines
+			var y4 = chartHeight - axisTextHeight / 2;
+			createFrameText(frame, x3_1, y4, "PRIVATE COMPAINTS");
+			createFrameText(frame, x3_2, y4, "OUTWARD COMPAINTS");
+			createFrameText(frame, x3_3, y4, "COMPAINTS TO ME");
+
+			// arc centers
+			var c1 = { x: x1 + gap, y: y1 + (y2 - y1) / 2 };
+			var c2 = { x: x1 - gap, y: y1 + (y2 - y1) / 2 };
+			var c3 = { x: x2 + gap, y: y1 + (y2 - y1) / 2 };
+			var crScale = d3.scaleLinear().range([300, 350]);
+
+			// default: read from sample file
+			d3.csv("data/data.csv").then(function(csvData) {
+				currData = csvData;
+				drawChart();
+			});
+
+			// read from file
+			var reader = new FileReader();
+
+			function loadFile() {
+				var file = document.querySelector("#yourData").files[0];
+				reader.addEventListener("load", parseFile, false);
+				if (file) {
+					reader.readAsText(file);
+				}
+			}
+
+			function parseFile() {
+				var fileData = d3.csvParse(reader.result, function(d) {
+					return d;
+				})
+				currData = fileData;
+				drawChart();
+			}
+
+			function sortChart() {
+				drawChart("type");
+			}
+
+			function shuffleChart() {
+				drawChart();
+			}
+
+			function drawChart(sortType = "random") {
+				// clean up
+				d3.select("#chartData").remove();
+
+				var allLines = {};
+				for (var i = 0; i < currData.length; i++) {
+					var item = currData[i];
+					if (!(item.direction in allLines)) {
+						allLines[item.direction] = [];
+					}
+					allLines[item.direction].push(item.type);
+				}
+
+				// shuffle complaints
+				var keys = Object.keys(allLines);
+				var lengths = [];
+				for (var i = 0; i < keys.length; i++) {
+					if (sortType == "type") {
+						allLines[keys[i]] = allLines[keys[i]].sort(d3.ascending);
+					} else {
+						shuffleArray(allLines[keys[i]]);
+					}
+					lengths.push(allLines[keys[i]].length);
+				}
+
+				crScale.domain([d3.min(lengths), d3.max(lengths)]);
+				var chartData = chartContent.append("g")
+											.attr("id", "chartData")
+											.attr("transform", "translate(" + marginX + ",0)");
+
+				var arc1 = chartData.append("g").attr("id", "private");
+				drawArcLines("#private", allLines.private, crScale(allLines.private.length), c1, vLine1, -1);
+
+				var arc2 = chartData.append("g").attr("id", "outward");
+				drawArcLines("#outward", allLines.outward, crScale(allLines.outward.length), c2, vLine1, 1);
+
+				var arc3 = chartData.append("g").attr("id", "to_me");
+				drawArcLines("#to_me", allLines.to_me, crScale(allLines.to_me.length), c3, vLine2, -1);
+
+				d3.selectAll(".dataLine")
+					.on("mouseover", function(e, d) {
+						var thisLine = d3.select(this);
+						var strokeWidth = parseInt(thisLine.style("stroke-width"));
+						var thisClass = thisLine.attr("class");
+						thisLine.style("stroke", colors.black)
+								.style("stroke-width", Math.floor(strokeWidth * 2));
+						var textAnchor = "start";
+						if (thisClass.includes("neg")) {
+							textAnchor = "end";
+						}
+
+						chartData.append("text")
+									.attr("x", d.ip.x)
+									.attr("y", d.ip.y)
+									.attr("id", "tooltip")
+									.call(formatLegendText)
+									.attr("dominant-baseline", "central")
+									.attr("text-anchor", textAnchor)
+									.attr("fill", colors[complaintColors[d.type]])
+									.text(d.type.toUpperCase());
+					})
+					.on("mouseout", function(e, d) {
+						d3.selectAll("#tooltip").remove();
+						d3.select(this)
+							.style("stroke-width", arcLineStrokeWidth)
+							.style("stroke", colors[complaintColors[d.type]]);
+					});
+			}
+
+			function shuffleArray(array) {
+				for (var i = array.length - 1; i > 0; i--) {
+					var j = Math.floor(Math.random() * (i + 1));
+					var temp = array[i];
+					array[i] = array[j];
+					array[j] = temp;
+				}
+			}
+
+			function drawArcLines(id, data, cr, cp, line, sign) {
+				var arcGap = Math.floor((116 - data.length) / 2);
+				var total = data.length + arcGap * 2;
+				var thisData = [];
+
+				for (var i = arcGap; i < data.length + arcGap; i++) {
+					var ip = {
+						x: cp.x + cr * Math.sin(Math.PI / total * i * sign) + Math.random() * 5,
+						y: cp.y + cr * Math.cos(Math.PI / total * i * sign) + Math.random() * 5
+					};
+					var lp1 = { x: line.x1, y: line.y1 };
+					var lp2 = { x: line.x2, y: line.y2 };
+					var p = getIntersection(cp, ip, lp1, lp2);
+					var type = data[i - arcGap];
+					thisData.push({
+						type: data[i - arcGap],
+						p: p,
+						ip: ip
+					});
+				}
+
+				var signClass;
+				if (sign == 1) {
+					signClass = "pos";
+				} else {
+					signClass = "neg";
+				}
+
+				d3.select(id).selectAll("line")
+							.data(thisData)
+							.enter()
+							.append("line")
+							.attr("x1", function(d) { return d.p.x; })
+							.attr("x2", function(d) { return d.ip.x; })
+							.attr("y1", function(d) { return d.p.y; })
+							.attr("y2", function(d) { return d.ip.y; })
+							.attr("class", "dataLine " + signClass)
+							.style("stroke", function(d) {
+								return colors[complaintColors[d.type]];
+							})
+							.style("stroke-opacity", 0.8)
+							.style("stroke-width", arcLineStrokeWidth);
+			}
+
+			function getIntersection(p0, p1, p2, p3) {
+				var s, s1_x, s1_y, s2_x, s2_y, t, p;
+				s1_x = p1.x - p0.x;
+				s1_y = p1.y - p0.y;
+				s2_x = p3.x - p2.x;
+				s2_y = p3.y - p2.y;
+				s = (-s1_y * (p0.x - p2.x) + s1_x * (p0.y - p2.y)) / (-s2_x * s1_y + s1_x * s2_y);
+				t = (s2_x * (p0.y - p2.y) - s2_y * (p0.x - p2.x)) / (-s2_x * s1_y + s1_x * s2_y);
+				p = {
+					x: p0.x + (t * s1_x),
+					y: p0.y + (t * s1_y)
+				};
+				if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
+					return p;
+				}
+				return null;
+			}
+
+			function formatText(g) {
+				return g.attr("text-anchor", "start")
+						.attr("dominant-baseline", "hanging")
+						.attr("font-family", "Helvetica")
+						.attr("fill", colors.black);
+			}
+
+			function formatLegendTitle(g) {
+				return g.call(formatText)
+						.attr("font-size", 15)
+						.attr("font-weight", "bold");
+			}
+
+			function formatLegendText(g) {
+				return g.call(formatText)
+						.attr("text-anchor", "start")
+						.attr("font-size", 15)
+						.attr("font-weight", "bold");
+			}
+
+			function createFrameLine(frame, line, strokeWidth) {
+				return frame.append("line")
+						.attr("x1", line.x1)
+						.attr("x2", line.x2)
+						.attr("y1", line.y1)
+						.attr("y2", line.y2)
+						.style("stroke", colors.black)
+						.style("stroke-width", strokeWidth);
+			}
+
+			function createFrameText(frame, x, y, text) {
+				return frame.append("text")
+						.attr("x", x)
+						.attr("y", y)
+						.call(formatText)
+						.attr("dominant-baseline", "central")
+						.attr("text-anchor", "middle")
+						.attr("font-size", 12)
+						.text(text);
+			}
+
+		</script>
+	</body>	
+</html>

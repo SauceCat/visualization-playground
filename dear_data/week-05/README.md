@@ -6,7 +6,7 @@ Dear Data - Week 5
 
 #### Overall visual
 
-<img src="asserts/Dear-Data-Week-05.png">
+<img src="asserts/Dear-Data-Week-05.png" width="85%">
 
 #### Hover the icon for more details
 
@@ -33,5 +33,7 @@ So the possible values for each field are:
 - **cost**: any number
 
 ### original postcard
+
+Scan from the original Book.
 
 <img src="asserts/postcard.jpeg" width="80%">

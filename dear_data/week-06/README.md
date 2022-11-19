@@ -18,7 +18,7 @@ Dear Data - Week 6
 
 The data should be formated like this: (check the **data** folder for more details!)
 
-<img src="data/data.png" width="50%">
+<img src="data/data.png" width="40%">
 
 So the possible values for each field are:
 

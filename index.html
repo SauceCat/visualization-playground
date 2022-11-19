@@ -5,41 +5,119 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
 
     <title>d3 playground</title>
+    <style type="text/css">
+      :root {
+        --gray: #969696;
+        --black: #000000;
+      }
+
+      body {
+        font-family: Arial;
+      }
+
+      #title-container {
+        padding: 2%;
+        font-size: 2rem;
+      }
+
+      #title {
+        margin: auto;
+      }
+
+      #title-details a {
+        color: var(--gray);
+        font-size: 1.5rem;
+      }
+
+      .intro {
+        margin: 2% 0 3% 0;
+        color: var(--gray);
+      }
+
+      .intro a {
+        color: var(--black);
+      }
+
+      .subtitle {
+        margin-top: 2%;
+        font-size: 1.5rem;
+      }
+
+      .card-title a {
+        color: var(--black);
+        font-size: 1.2rem;
+      }
+
+      .card-text {
+        color: var(--gray);
+        font-size: 1rem;
+      }
+
+      .card {
+        border-width: 2px;
+      }
+
+      .card-img-top {
+        padding: 5%;
+      }
+      
+    </style>
 </head>
 <body>
+  <header>
+    <nav class="navbar navbar-expand-md navbar-light bg-white absolute-top">
+      <div class="container" id="title-container">
+        <h1 id="title">
+          D3 PLAYGROUND
+          <span id="title-details"><a href="https://github.com/SauceCat/d3-playground" target="blank">DETAILS</a></span>
+        </h1>
+      </div>
+        
+    </nav>
+  </header>
 
+  <main>
     <div class="container">
-        <h2>D3 Playground</h2>
-        <div class="row">
-            <div class="col-4">
-              <div class="card">
-                <img class="card-img-top" src="dear_data/week-05/asserts/showcase.png" alt="Card image cap">
-                <div class="card-body">
-                  <h5 class="card-title"><a href="dear_data/week-05/index.html" target="blank">Week 05: A Week of Things I Buy</a></h5>
-                  <p class="card-text">Collect data about things I buy in a week, including purchase type, whether it is necessary, the payment method, and the cost.</p>
-                </div>
+      <h2 class="subtitle">DEAR DATA</h2>
+      <p class="intro">
+        <a href="http://www.dear-data.com/theproject" target="blank">Dear Data Project</a> inspires me a lot, it reminds me of the natural beauty behind the data about ourselves. 
+        Collecting personal data encourages us to focus on the daily nuance we might otherwise ignore. 
+        As individuals, we should be able to own our data and make independent decisions about its usage. 
+        While Giorgia and Stefanie show us the magic of data drawing, as a data scientist and engineer, 
+        I am trying to implement some of those great visualization ideas using D3.js, one of my favorite open-source libraries. 
+      </p>
+      <div class="row">
+          <div class="col-4">
+            <div class="card">
+              <img class="card-img-top" src="dear_data/week-05/asserts/hover.jpeg" alt="Card image cap">
+              <div class="card-body">
+                <h5 class="card-title"><a href="dear_data/week-05/index.html" target="blank">Week 05: A Week of Things I Buy</a></h5>
+                <p class="card-text">Collect data about things I buy in a week, including purchase type, whether it is necessary, the payment method, and the cost.</p>
               </div>
             </div>
-            <div class="col-4">
-              <div class="card">
-                <img class="card-img-top" src="dear_data/week-06/asserts/hover.png" alt="Card image cap">
-                <div class="card-body">
-                  <h5 class="card-title"><a href="dear_data/week-06/index.html" target="blank">Week 06: A Week of Physical Contact</a></h5>
-                  <p class="card-text">Collect data about physical contact I made in a week, including the person I interact with, the contact type as well as the intimacy level.</p>
-                </div>
+          </div>
+          <div class="col-4">
+            <div class="card">
+              <img class="card-img-top" src="dear_data/week-06/asserts/hover.png" alt="Card image cap">
+              <div class="card-body">
+                <h5 class="card-title"><a href="dear_data/week-06/index.html" target="blank">Week 06: A Week of Physical Contact</a></h5>
+                <p class="card-text">Collect data about physical contact I made in a week, including the person I interact with, the contact type as well as the intimacy level.</p>
               </div>
             </div>
-            <div class="col-4">
-              <div class="card">
-                <img class="card-img-top" src="dear_data/week-07/asserts/randomize.png" alt="Card image cap">
-                <div class="card-body">
-                  <h5 class="card-title"><a href="dear_data/week-07/index.html" target="blank">Week 07: A Week of Complaints</a></h5>
-                  <p class="card-text">Collect data about complaints I made in a week, including the complaining direction and the type.</p>
-                </div>
+          </div>
+          <div class="col-4">
+            <div class="card">
+              <img class="card-img-top" src="dear_data/week-07/asserts/hover.jpeg" alt="Card image cap">
+              <div class="card-body">
+                <h5 class="card-title"><a href="dear_data/week-07/index.html" target="blank">Week 07: A Week of Complaints</a></h5>
+                <p class="card-text">Collect data about complaints I made in a week, including the complaining direction and the type.</p>
               </div>
             </div>
-        </div>
-            
+          </div>
+      </div>
     </div>
+  </main>
+
+  <footer></footer>
 </body>
 </html>

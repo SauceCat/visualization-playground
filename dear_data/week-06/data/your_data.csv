@@ -1,0 +1,108 @@
+person,day,contact,intimacy,manipulate
+husband,7,affection,3,0
+husband,7,sexual attraction,5,0
+mother,3,affection,2,0
+husband,6,affection,4,0
+husband,2,affection,4,0
+husband,4,affection,4,0
+husband,7,affection,4,0
+husband,6,affection,4,0
+person5,3,task-based,1,0
+husband,7,affection,2,0
+mother,4,affection,4,1
+husband,7,affection,4,0
+husband,7,affection,3,0
+husband,6,affection,4,0
+husband,5,affection,3,0
+friend1,1,greeting and goodbye,2,0
+husband,2,affection,3,0
+husband,2,affection,3,0
+husband,7,affection,4,0
+friend1,5,task-based,2,0
+husband,3,affection,4,0
+husband,2,sexual attraction,5,0
+husband,7,affection,4,0
+person8,4,greeting and goodbye,1,0
+father,6,affection,2,0
+husband,5,affection,3,0
+person17,5,greeting and goodbye,1,0
+husband,7,affection,2,0
+husband,5,affection,4,0
+husband,5,affection,3,0
+husband,1,sexual attraction,5,0
+husband,2,affection,2,0
+husband,7,affection,3,0
+father,2,affection,3,0
+friend1,3,friendly contact,3,1
+person13,1,task-based,1,0
+husband,6,affection,3,0
+husband,5,affection,4,0
+husband,6,affection,2,0
+husband,7,affection,3,0
+husband,1,affection,2,0
+husband,5,affection,2,0
+husband,4,affection,2,0
+husband,5,affection,4,0
+husband,7,affection,2,0
+person10,2,task-based,1,0
+friend1,2,greeting and goodbye,2,0
+husband,5,affection,2,0
+husband,7,affection,2,0
+husband,4,affection,4,0
+husband,4,sexual attraction,5,0
+husband,4,sexual attraction,5,0
+father,2,greeting and goodbye,2,0
+mother,2,greeting and goodbye,3,1
+person14,5,task-based,1,0
+father,5,affection,2,0
+husband,7,affection,3,0
+husband,2,affection,4,0
+husband,6,affection,3,0
+father,1,greeting and goodbye,2,0
+person16,6,greeting and goodbye,1,0
+person18,3,task-based,1,0
+husband,4,affection,3,0
+husband,7,affection,3,0
+person7,4,greeting and goodbye,1,0
+father,7,affection,2,1
+husband,6,affection,4,0
+husband,5,sexual attraction,5,0
+husband,4,affection,3,0
+person3,2,task-based,1,0
+husband,6,affection,4,0
+friend1,6,friendly contact,3,1
+husband,4,affection,4,0
+husband,4,affection,4,0
+husband,1,affection,4,0
+person9,4,task-based,1,0
+husband,1,affection,3,0
+husband,7,affection,4,0
+husband,7,affection,4,0
+father,3,affection,2,0
+mother,7,affection,2,0
+husband,3,affection,3,0
+person15,7,greeting and goodbye,1,0
+mother,1,greeting and goodbye,2,0
+husband,6,affection,3,0
+mother,5,affection,3,0
+person2,1,task-based,1,0
+husband,6,affection,2,0
+person12,1,greeting and goodbye,1,0
+husband,6,affection,3,0
+husband,5,affection,2,0
+person17,2,greeting and goodbye,1,0
+person8,3,greeting and goodbye,1,0
+husband,6,sexual attraction,5,0
+husband,4,affection,3,0
+husband,6,affection,3,0
+husband,2,affection,3,0
+friend1,3,friendly contact,3,1
+person6,1,task-based,1,0
+husband,5,affection,4,0
+husband,7,affection,3,0
+person15,3,greeting and goodbye,1,0
+person19,4,greeting and goodbye,1,0
+husband,7,affection,4,0
+father,3,affection,2,0
+person16,4,greeting and goodbye,1,0
+husband,3,affection,2,0

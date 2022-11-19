@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Dear Data: Week 06</title>
+		<script src="https://d3js.org/d3.v7.min.js"></script>
+		<style type="text/css">
+			:root {
+				--fontFamily: Helvetica, Arial, sans-serif;
+			}
+
+			#header p {
+				font-family: var(--fontFamily);
+				margin-top: 50px;
+				margin-bottom: 0;
+				font-size: 12px;
+				line-height: 14px;
+				color: #4d4d4d;
+			}
+
+			#header p a {
+				color: gray;
+			}
+
+			#tooltip.hidden {
+				display: none;
+			}
+
+			#tooltip span {
+				font-weight: bold;
+			}
+
+			#tooltip p {
+				margin: 0;
+				font-family: var(--fontFamily);
+				font-size: 10px;
+			}
+
+			#fileInput {
+				margin-top: 50px;
+				font-family: var(--fontFamily);
+				font-size: 12px;
+			}
+
+			.input {
+				border: 1px solid rgba(27, 31, 35, 0.15);
+				border-radius: 6px;
+				cursor: pointer;
+				display: inline-block;
+				font-family: var(--fontFamily);
+				font-size: 14px;
+				padding: 6px 16px;
+				position: relative;
+			}
+
+			#submit {
+				border: none;
+				background-color: #48cae4;
+			}
+
+			#refresh {
+				border: none;
+				background-color: #000000;
+				color: #ffffff;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div id="header">
+			<p>I plan to implement some of the great visualization ideas from 
+				<span><a href="http://www.dear-data.com/" target="blank">Dear Data</a></span> 
+				using D3.js, <br>so the story, as well as the methodology of collecting personal data points, 
+				can be reused for everyone.
+			</p>
+		</div>
+		<div id="chart">
+			<div id="chartTitle"></div>
+			<div id="fileInput">
+				<input class="input" type="file" accept=".csv" id="yourData" name="yourData" />
+				<button class="input" onclick="loadFile()" id="submit">Visualize Your Data!</button>
+				<button class="input" onclick="drawChart()" id="refresh">Refresh Layout!</button>
+			</div>
+			<div id="chartLegend"></div>
+			<div id="chartContent">
+			</div>
+		</div>
+
+		<script type="text/javascript">
+			const width = 1400, gap = 50, marginX = 200, marginY = 80;
+			var colors = {
+				black: "#000000",
+				white: "#ffffff",
+				lightGreen: "#74c69d",
+				red: "#e63946",
+				pink: "#ff99ac",
+				darkBlue: "#22577a",
+				orange: "#f46d43",
+				lightBlue: "#48cae4",
+				grey: "#878787",
+				yellow: "#f6bd60",
+				darkGreen: "#40916c",
+				purple: "#5e4fa2"
+			};
+			var weekdays = {
+				1: "Monday",
+				2: "Tuesday",
+				3: "Wednesday",
+				4: "Thursday",
+				5: "Friday",
+				6: "Saturday",
+				7: "Sunday"
+			};
+
+			d3.select("#header").style("margin-left", marginX + "px");
+
+			// TITLE: start
+			d3.select("#chart")
+				.style("margin-left", marginX + "px")
+				.style("margin-top", marginY + "px");
+			var chartTitle = d3.select("#chartTitle")
+								.append("svg")
+								.attr("width", width);
+
+			var title = chartTitle.append("g");
+			var titleMain = title.append("text")
+								.attr("x", 0)
+								.attr("y", 0)
+								.attr("font-size", 50)
+								.attr("font-weight", "bold")
+								.call(formatText)
+								.text("DEAR DATA");
+			var titleMainWidth = Math.round(titleMain.node().getBBox().width);
+			var titleMainHeight = Math.round(titleMain.node().getBBox().height);
+			var titleSide = title.append("text")
+								.attr("x", titleMainWidth + gap / 2)
+								.attr("y", titleMainHeight / 3)
+								.attr("font-size", 25)
+								.call(formatText)
+								.attr("dominant-baseline", "central")
+								.text(" - WEEK 06");
+			var titleSub = title.append("text")
+								.attr("x", 0)
+								.attr("y", titleMainHeight)
+								.attr("font-size", 20)
+								.call(formatText)
+								.text("A WEEK OF PHYSICAL CONTACT");
+			var titleSubHeight = Math.round(titleSub.node().getBBox().height);
+			chartTitle.attr("height", titleMainHeight + titleSubHeight);
+			// TITLE: end
+
+			// LEGEND: start
+			var chartLegend = d3.select("#chartLegend")
+								.append("svg")
+								.attr("width", width);						
+			var contactLegend = chartLegend.append("g")
+											.attr("transform", "translate(0, " + marginY + ")");
+			var contactLegendTitle = contactLegend.append("text")
+													.call(formatLegendTitle)
+													.text("CIRCLE COLOR: TYPE OF PHYSICAL CONTACT");
+			const contactTypes = {
+				0: {
+					color: colors.purple,
+					title: "task-based",
+					subtitle: "handing back charge, etc.",
+					strokeWidth: 1
+				},
+				1: {
+					color: colors.orange,
+					title: "friendly contact",
+					subtitle: "contact with good friends",
+					strokeWidth: 1
+				},
+				2: {
+					color: colors.pink,
+					title: "sexual attraction",
+					subtitle: "it explains itself",
+					strokeWidth: 1
+				},
+				3: {
+					color: colors.lightBlue,
+					title: "greeting and goodbye",
+					subtitle: "handshake, hug...",
+					strokeWidth: 1
+				},
+				4: {
+					color: colors.red,
+					title: "affection",
+					subtitle: "contact with family/husband",
+					strokeWidth: 1
+				},
+				5: {
+					color: colors.white,
+					title: "manipulated",
+					subtitle: "by friends/family",
+					strokeWidth: 3
+				},
+			}
+			const itemsPerRow = 3, circleRadius = 15, circleGap = 250, legendTextSize = 13;
+			const iconHeight = circleRadius * 4;
+			const innerCircleFactor = 0.75;
+			var contactLegendData = [], contactToIdx = {};
+			for (var i = 0; i < Object.keys(contactTypes).length; i++) {
+				contactLegendData.push(contactTypes[i]);
+				contactLegendData[i]["cx"] = circleRadius + i % itemsPerRow * (circleRadius + circleGap);
+				contactLegendData[i]["cy"] = Math.floor(i / itemsPerRow) * iconHeight;
+				contactToIdx[contactTypes[i].title] = i;
+			}
+			contactLegendContent = contactLegend.append("g")
+												.attr("transform", "translate(10, " + marginY + ")");
+			var contactIcons = contactLegendContent.selectAll("g")
+													.data(contactLegendData)
+													.enter()
+													.append("g");
+			drawColorIcon(contactIcons);
+
+			var contactIconsText = contactIcons.append("text")
+											.attr("x", d => d.cx + circleRadius * 2)
+											.attr("y", d => d.cy - legendTextSize * 0.85)
+											.call(formatLegendText);
+			addColorIconText(contactIconsText, false);
+			addColorIconText(contactIconsText, true);
+
+			var sizeLegendMarginX = contactLegend.node().getBBox().width + gap;
+			var sizeLegend = chartLegend.append("g")
+										.attr("transform", "translate(0" + sizeLegendMarginX + ", " + marginY + ")");
+			var sizeLegendTitle = sizeLegend.append("text")
+											.call(formatLegendTitle)
+											.text("CIRCLE SIZE: LEVEL OF INTIMACY OF CONTACT");
+			const numSizes = 5, sizeIconGap = 100;
+			var sizeLegendData = d3.range(numSizes);
+			var sizeScale = d3.scaleLinear()
+								.domain([1, numSizes])
+								.range([circleRadius * 0.5, circleRadius * 1.2]);
+			var sizeScaleRange = [circleRadius * 2, (numSizes - 1) * sizeIconGap + circleRadius];
+			var sizeCountScale = d3.scaleLinear()
+									.domain([1, numSizes])
+									.range(sizeScaleRange);
+			var sizeIcons = sizeLegend.append("g")
+										.attr("transform", "translate(10, " + circleRadius + ")")
+										.selectAll("g")
+										.data(sizeLegendData)
+										.join("g");
+			sizeIcons.append("circle")
+						.attr("cx", (d, i) => sizeCountScale(i + 1))
+						.attr("cy", (d, i) => circleRadius * 4 - sizeScale(i + 1))
+						.attr("r", (d, i) => sizeScale(i + 1))
+						.attr("fill", "none")
+						.attr("stroke", colors.black);
+			sizeAxis = d3.axisBottom()
+						.scale(sizeCountScale)
+						.ticks(numSizes);
+			sizeLegend.append("g")
+						.attr("transform", "translate(10," + circleRadius * 5 + ")")
+						.call(sizeAxis)
+						.attr("font-size", 12)
+						.attr("font-weight", "bold");
+			addSizeLegendText(sizeLegend, ["NOT INTIMATE", "AT ALL"], true);
+			addSizeLegendText(sizeLegend, ["EXCEPTIONALLY", "INTIMATE"], false);
+			var chartLegendHeight = marginY + Math.round(contactLegend.node().getBBox().height) + gap;
+			chartLegend.attr("height", chartLegendHeight);
+			// LEGEND: end
+
+			// default: read from sample file
+			var currData;
+			d3.csv("data/data.csv", rowConverter).then(function(csvData) {
+				currData = csvData;
+				drawChart();
+			});
+
+			// read from file input
+			var reader = new FileReader();
+
+			function loadFile() {
+				var file = document.querySelector("#yourData").files[0];
+				reader.addEventListener("load", parseFile, false);
+				if (file) {
+					reader.readAsText(file);
+				}
+			}
+
+			function parseFile() {
+				var fileData = d3.csvParse(reader.result, rowConverter, d => d)
+				currData = fileData;
+				drawChart();
+			}
+
+			function drawChart() {
+				d3.select("#chartContent svg").remove();
+				var graphLeft = 100, graphRight = 100;
+				var graphWidth = width - graphLeft - graphRight;
+				var graphHeight = graphWidth / 3 * 2;
+
+				var nodes = [], persons = {};
+				currData.forEach(function(d, i) {
+					if (persons[d.person] == undefined) {
+						persons[d.person] = {
+							total: 0
+						};
+					}
+					persons[d.person].total += 1;
+					d.index = persons[d.person].total;
+					d.id = d.person + "_" + d.index;
+					nodes.push(d);
+				});
+
+				var numNodes = currData.length, personsRank = [];
+				Object.keys(persons).forEach(function(d, i) {
+					nodes.push({
+						index: -1,
+						id: d,
+						person: d
+					})
+					personsRank.push([d, persons[d].total]);
+				});
+				personsRank.sort(function(first, second) {
+					return second[1] - first[1];
+				});
+
+				var unitX = graphWidth / numNodes;
+				Object.keys(persons).forEach(function(d, i) {
+					persons[d].xrange = unitX * persons[d].total;
+					if (i == 0) {
+						persons[d].xrange *= 0.9;
+					}
+				});
+
+				var leftX = 0, rightX = 0;
+				var halfNum = Math.ceil(personsRank.length / 2);
+				var leftYs = new Array(halfNum).fill(0), rightYs = new Array(halfNum).fill(0);
+				var unitY = graphHeight * 0.7 / halfNum;
+
+				personsRank.forEach(function(d, i) {
+					var key = d[0], total = d[1];
+					var halfW = graphWidth / 2, xrange = persons[key].xrange;
+					var cx = halfW, cy = graphHeight / 2;
+
+					if (i == 0) {
+						leftX += xrange / 2;
+						rightX += xrange / 2;
+					} else if (i % 2 == 1) {
+						cx = halfW - leftX - xrange / 2;
+						leftX += xrange;
+					} else if (i % 2 == 0) {
+						cx = halfW + rightX + xrange / 2;
+						rightX += xrange;
+					}
+
+					if (i > 0) {
+						var slots = cx > halfW? rightYs: leftYs;
+						// randomly choose a rest slot
+						var rest = halfNum - slots.reduce((a, b) => a + b, 0);
+						var j = parseInt(Math.random() * rest) + 1, k, c = 0;
+						if (cx > halfW) {
+							for (k = 0; k < rightYs.length; k++) {
+								if (rightYs[k] == 0) {
+									c += 1;
+								}
+								if (c == j) {
+									rightYs[k] = 1;
+									break;
+								}
+							}
+						} else {
+							for (k = 0; k < leftYs.length; k++) {
+								if (leftYs[k] == 0) {
+									c += 1;
+								}
+								if (c == j) {
+									leftYs[k] = 1;
+									break;
+								}
+							}
+						}
+						cy = graphHeight - k * unitY - gap * 2;
+					}
+
+					persons[key].cx = graphLeft + cx;
+					persons[key].cy = cy;
+					persons[key].index = i;
+				});
+
+				var chartContent = d3.select("#chartContent")
+										.append("svg")
+										.attr("width", graphLeft + graphWidth + graphRight)
+										.attr("height", graphHeight);
+
+				// draw invisible circles for random placement
+				const factors = [0.94, 0.96, 0.98, 1.0, 1.02];
+				const numCircles = factors.length;
+				Object.keys(persons).forEach(function(d, i) {
+					var xrange = persons[d].xrange;
+					var cx = persons[d].cx, cy = persons[d].cy;
+					persons[d].circles = [];
+					factors.forEach(function(f, j) {
+						var circle = chartContent.append("path")
+													.attr("d", circlePath(cx, cy, xrange * f / 2))
+													.style("fill", "none");
+						persons[d].circles.push(circle);
+					});
+				});
+
+				nodes.forEach(function(d, i) {
+					var personInfo = persons[d.person];
+					var circle = personInfo.circles[3];
+					if (persons[d.person].index == 0) {
+						circle = personInfo.circles[parseInt(Math.random() * numCircles)];
+					}
+					var coord = circleCoord(circle, d.index, personInfo.total);
+					d.cx = coord.x;
+					d.cy = coord.y;
+					d.r = d.index == -1? 0: sizeScale(d.intimacy) * 0.8;
+					d.color = d.index == -1? "none": contactTypes[contactToIdx[d.contact]].color;
+					d.strokeWidth = d.manipulate ? contactTypes[5].strokeWidth: 1;
+				});
+
+				var nodeLinks = chartContent.append("g")
+											.call(formatLinks)
+											.selectAll("line")
+											.data(nodes)
+											.join("line")
+											.attr("x1", d => d.cx)
+											.attr("y1", d => d.cy)
+											.attr("x2", d => persons[d.person].cx)
+											.attr("y2", d => persons[d.person].cy);
+
+				Object.keys(persons).forEach(function(d, i) {
+					var sign = Math.random() < 0.5? 1: -1, randX = 10;
+					chartContent.append("line")
+								.call(formatLinks)
+								.attr("id", d + "-line")
+								.attr("x1", persons[d].cx)
+								.attr("y1", persons[d].cy)
+								.attr("x2", persons[d].cx + Math.random() * sign * randX)
+								.attr("y2", graphHeight);
+				});
+
+				var nodeIcons = chartContent.selectAll("g")
+											.data(nodes)
+											.join("g").attr("class", "icon");
+				nodeIcons.append("circle").attr("cx", d => d.cx)
+											.attr("cy", d => d.cy)
+											.attr("r", d => d.r)
+											.attr("class", "icon icon-outer")
+											.attr("fill", colors.white)
+											.attr("stroke", d => colors.black)
+											.attr("stroke-width", d => d.strokeWidth);
+				nodeIcons.append("circle").attr("cx", d => d.cx)
+											.attr("cy", d => d.cy)
+											.attr("r", d => d.r * 0.75)
+											.attr("class", "icon icon-inner")
+											.attr("id", d => d.id)
+											.attr("fill", d => d.color);
+
+				d3.selectAll(".icon")
+					.on("mouseover", function(e, d) {
+						var thisIcon = d3.select(this);
+						const strokeWidth = 3, padding = 10;
+
+						thisIcon.select("." + "icon-outer")
+								.style("stroke", d.color)
+								.style("stroke-width", strokeWidth);
+						chartContent.select("#" + d.person + "-line")
+									.attr("stroke", d.color)
+									.attr("stroke-width", strokeWidth);
+						chartContent.append("line")
+									.attr("class", "tooltip")
+									.attr("stroke", d.color)
+									.attr("stroke-width", strokeWidth)
+									.attr("x1", d.cx)
+									.attr("y1", d.cy)
+									.attr("x2", persons[d.person].cx)
+									.attr("y2", persons[d.person].cy);
+
+						var tx = d.cx;
+						var ty = d.cy + d.r + padding;
+						if (d.cy > graphHeight * 0.9) {
+							ty = ty - d.r - padding - gap;
+						}
+						var background = chartContent.append("rect")
+									.attr("class", "tooltip")
+									//.attr("x", tx)
+									.attr("y", ty)
+									.attr("height", padding * 2 + 12)
+									.attr("stroke", d.color)
+									.attr("fill", colors.white);
+						var tooltip = chartContent.append("text")
+									//.attr("x", tx + padding)
+									.attr("y", ty + padding)
+									.attr("class", "tooltip")
+									.call(formatLegendText)
+									.attr("text-anchor", "left")
+									.text(d.person + ", " + weekdays[d.day] + ", " + d.contact.toUpperCase());
+						var tooltipWidth = tooltip.node().getBBox().width;
+						background.attr("x", tx - tooltipWidth / 2 - padding)
+									.attr("width", tooltipWidth + padding * 2);
+						tooltip.attr("x", tx - tooltipWidth / 2);
+
+					})
+					.on("mouseout", function(e, d) {
+						d3.selectAll(".tooltip").remove();
+						d3.select(this).select("." + "icon-outer")
+								.style("stroke", colors.black)
+								.style("stroke-width", d => d.strokeWidth);
+						d3.select("#" + d.person + "-line")
+							.attr("stroke", colors.black)
+							.attr("stroke-width", 1);
+					});
+			} 
+
+			function rowConverter(d, i, cols) {
+				var row = {
+					person: d.person,
+					day: +d.day,
+					contact: d.contact,
+					intimacy: +d.intimacy,
+					manipulate: +d.manipulate
+				};
+				return row;
+			}
+
+			function formatText(g) {
+				return g.attr("text-anchor", "start")
+						.attr("dominant-baseline", "hanging")
+						.attr("font-family", "Helvetica")
+						.attr("fill", colors.black);
+			}
+
+			function formatLegendTitle(g) {
+				return g.call(formatText)
+						.attr("font-size", 15)
+						.attr("font-weight", "bold");
+			}
+
+			function formatLegendText(g) {
+				return g.call(formatText)
+						.attr("text-anchor", "start")
+						.attr("font-size", legendTextSize);
+			}
+
+			function drawColorIcon(colorIcons) {
+				drawCircle(colorIcons, true);
+				drawCircle(colorIcons, false);
+			}
+
+			function drawCircle(g, is_inner) {
+				g.append("circle")
+					.attr("cx", d => d.cx)
+					.attr("cy", d => d.cy)
+					.attr("r", is_inner? circleRadius * innerCircleFactor: circleRadius)
+					.attr("fill", function(d) {
+						if (is_inner) return d.color;
+						return "none";
+					})
+					.attr("stroke", function(d) {
+						if (!is_inner || d.color == colors.white) {
+							return colors.black;
+						}
+						return "none";
+					})
+					.attr("stroke-width", function(d) {
+						if (is_inner && d.color == colors.white) { return 1;}
+						return d.strokeWidth;
+					});
+			}
+
+			function addColorIconText(g, is_subtitle) {
+				g.append("tspan")
+					.attr("x", d => d.cx + circleRadius * 2)
+					.attr("dy", is_subtitle? legendTextSize: 0)
+					.attr("font-size", is_subtitle? Math.floor(legendTextSize * 0.9): legendTextSize)
+					.text(function(d) {
+						if (is_subtitle) { return d.subtitle };
+						return d.title.toUpperCase();
+					});
+			}
+
+			function addSizeLegendText(g, texts, is_left) {
+				var tx = is_left? circleRadius: sizeScaleRange[1];
+				var tsx = is_left? circleRadius * 4: sizeScaleRange[1];
+				var ty = circleRadius * 7;
+				var sizeLegendText = g.append("text")
+										.attr("x", tx)
+										.attr("y", ty)
+										.call(formatLegendText);
+				for (var i = 0; i < texts.length; i++) {
+					sizeLegendText.append("tspan")
+									.attr("x", tsx)
+									.attr("dy", legendTextSize * i)
+									.call(formatLegendText)
+									.attr("text-anchor", "middle")
+									.text(texts[i]);
+				}
+			}
+
+			function circleCoord(circle, index, num_nodes){
+				var circumference = circle.node().getTotalLength();
+			    var pointAtLength = function(l){return circle.node().getPointAtLength(l)};
+			    var sectionLength = (circumference) / num_nodes;
+			    var position;
+
+			    if (num_nodes == 2) {
+			    	position = circumference / 4 + sectionLength * (index - 1);
+			    } else {
+				    position = circumference / 4 - sectionLength * (index - 1) - sectionLength / 2;
+				    if (position < 0) {
+				    	position += circumference;
+				    }
+				    if (position == 0) {
+				    	position -= sectionLength / 2;
+				    }
+			    }
+			    return pointAtLength(position);
+			}
+
+			function circlePath(cx, cy, r){
+				return 'M ' + cx + ' ' + cy + ' m -' + r + ', 0 a ' + r + ',' + r + ' 0 1,0 ' + (r * 2) + ',0 a ' + r + ',' + r + ' 0 1,0 -' + (r * 2) + ',0';
+			}
+
+			function formatLinks(g) {
+				var linkStroke = colors.grey;
+				var linkStrokeWidth = 1;
+				var linkStrokeOpacity = 0.5;
+				var linkStrokeLinecap = "round";
+
+				g.attr("stroke", linkStroke)
+					.attr("stroke-opacity", linkStrokeOpacity)
+					.attr("stroke-width", linkStrokeWidth)
+					.attr("stroke-linecap", linkStrokeLinecap);
+			}
+
+		</script>
+	</body>
+</html>

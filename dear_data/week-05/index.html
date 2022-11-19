@@ -295,28 +295,28 @@
 			chartLegend.attr("height", costIconsTextY + marginY * 2);
 			// LEGEND: end
 
-		    // default: read from sample file
-		    d3.csv("data/data.csv", rowConverter).then(function(csvData) {
-		    	drawChart(csvData);
-		    });
+			// default: read from sample file
+			d3.csv("data/data.csv", rowConverter).then(function(csvData) {
+				drawChart(csvData);
+			});
 
-		    // read from file input
-		    var reader = new FileReader();
+			// read from file input
+			var reader = new FileReader();
 
-		    function loadFile() {
-		    	var file = document.querySelector("#yourData").files[0];
-		    	reader.addEventListener("load", parseFile, false);
-		    	if (file) {
-		    		reader.readAsText(file);
-		    	}
-		    }
+			function loadFile() {
+				var file = document.querySelector("#yourData").files[0];
+				reader.addEventListener("load", parseFile, false);
+				if (file) {
+					reader.readAsText(file);
+				}
+			}
 
-		    function parseFile() {
-		    	var fileData = d3.csvParse(reader.result, rowConverter, function(d) {
-		    		return d;
-		    	})
-		    	drawChart(fileData);
-		    }
+			function parseFile() {
+				var fileData = d3.csvParse(reader.result, rowConverter, function(d) {
+					return d;
+				})
+				drawChart(fileData);
+			}
 
 			function drawChart(csvData) {
 				// clean up

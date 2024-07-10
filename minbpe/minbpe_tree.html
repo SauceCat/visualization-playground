@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>minbpe visualization</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tiny5&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: "Roboto", sans-serif;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1em;
+        }
+        
+        .title {
+            font-family: "Tiny5", sans-serif;
+            font-weight: 400;
+            font-style: normal;
+            font-size: 3.5em;
+            text-align: center;
+            margin-bottom: 0.25em;
+        }
+        
+        .subtitle {
+            font-weight: 100;
+            font-size: 1em;
+            text-align: center;
+            margin-bottom: 1em;
+        }
+        
+        #flowchart {
+            width: 100%;
+            overflow-x: auto;
+        }
+        
+        .footnotes {
+            font-weight: 400;
+            margin-top: 1.5em;
+            font-size: 0.9em;
+            text-align: center;
+        }
+
+        .node circle {
+            fill: #eee;
+            stroke-width: 0px;
+        }
+        .node text {
+            font-family: "Roboto", sans-serif;
+            font-weight: 400;
+            font-style: normal;
+            font-size: 0.8em;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+        }
+
+        .node.highlight text {
+            font-size: 1em;
+            fill: white;
+            text-shadow: none;
+        }
+        .node rect {
+            opacity: 0;
+            border-radius: 10%;
+        }
+        .node.highlight rect {
+            opacity: 1;
+        }
+
+        .link {
+            fill: none;
+            stroke-width: 1px;
+            opacity: 0.35;
+        }
+        .link.highlight {
+            stroke-width: 2px;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="title">minbpe visualization</h1>
+        <p class="subtitle">
+            Vocabulary Size: 1024, Corpus: Taylor Swift Wikipedia Page
+        </p>
+        <p class="footnotes">
+            &#10084;&#65039; Reference: Andrej Karpathy's <a href="https://github.com/karpathy/minbpe" target="_blank">minbpe tutorial</a>
+        </p>
+    </div>
+    <div id="flowchart"></div>
+    <script>
+        Promise.all([
+            d3.json('data/taylorswift_minbpe_vocab_merges.json'),
+            d3.json('data/taylorswift_minbpe_vocab.json')
+        ]).then(([mergeDict, vocabDict]) => {
+            const data = { nodes: [], links: [] };
+            const plotlyColors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'];
+            const color = d3.scaleOrdinal().range(plotlyColors);
+            for (const [key, value] of Object.entries(vocabDict)) {
+                const text = value.token;
+                data.nodes.push({
+                    id: key,
+                    value: text,
+                    text: text,
+                    originalText: text,
+                    isSpecial: value.is_spec,
+                    color: value.is_spec ? 'black' : color(value.length),
+                    length: value.length
+                });
+            }
+
+            // Create links from mergeDict
+            for (const [key, [i, j]] of Object.entries(mergeDict)) {
+                data.links.push({ source: i.toString(), target: key });
+                data.links.push({ source: j.toString(), target: key });
+            }
+
+            const width = 1600;
+            const sublayerHeight = 25; // Minimum height for a sublayer
+            var minLayerHeight = sublayerHeight * 2; // Minimum height for a layer
+            const nodeRadius = 0;
+            const maxNodesPerLayer = 50;
+            const rectRadius = 5;
+
+            const nodesByLength = d3.group(data.nodes, d => d.length);
+
+            // Calculate the number of sublayers and determine layer heights
+            let totalHeight = 0;
+            const layerHeights = new Map();
+
+            nodesByLength.forEach((nodes, length) => {
+                const numSublayers = Math.ceil(nodes.length / maxNodesPerLayer);
+                const calculatedHeight = numSublayers * sublayerHeight;
+                const layerHeight = Math.max(calculatedHeight, minLayerHeight);
+                layerHeights.set(length, layerHeight);
+                totalHeight += layerHeight;
+            });
+
+            const svg = d3.select("#flowchart").append("svg")
+                .attr("width", width)
+                .attr("height", totalHeight);
+
+            let currentY = 0;
+
+            // Distribute nodes into layers and sublayers
+            nodesByLength.forEach((nodes, length) => {
+                const layerHeight = layerHeights.get(length);
+                const numSublayers = Math.ceil(nodes.length / maxNodesPerLayer);
+                const effectiveSublayerHeight = layerHeight / numSublayers;
+                
+                nodes.forEach((node, i) => {
+                    node.x = (i % maxNodesPerLayer + 1) * (width / (Math.min(maxNodesPerLayer, nodes.length) + 1));
+                    const sublayerIndex = Math.floor(i / maxNodesPerLayer);
+                    node.y = currentY + sublayerIndex * effectiveSublayerHeight + effectiveSublayerHeight / 2;
+                });
+                
+                currentY += layerHeight;
+            });
+
+            const container = svg.append("g").attr("class", "container");
+
+            const link = container.append("g")
+                .attr("class", "links")
+                .selectAll("path")
+                .data(data.links)
+                .enter().append("path")
+                .attr("class", "link")
+                .attr("stroke", "#ccc");
+
+            const node = container.append("g")
+                .attr("class", "nodes")
+                .selectAll("g")
+                .data(data.nodes)
+                .enter().append("g")
+                .attr("class", "node");
+
+            node.append("rect")
+                .attr("width", 0)
+                .attr("height", 0)
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("rx", rectRadius)
+                .attr("ry", rectRadius)
+                .attr("fill", d => d.color);
+
+            node.append("circle")
+                .attr("r", nodeRadius)
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            node.append("text")
+                .attr("xml:space", "preserve")
+                .text(d => d.text)
+                .attr("fill", d => d.color);
+
+            node.on("mouseover", function(event, d) {
+                d3.select(this).style("cursor", "pointer");
+                const sourceNodes = data.links.filter(l => l.target === d.id).map(l => l.source);
+
+                link.classed("highlight", l => l.target === d.id)
+                    .filter(l => l.target === d.id)
+                    .attr("stroke", l => {
+                        const sourceNode = data.nodes.find(n => n.id === l.source);
+                        return sourceNode.color;
+                    });
+
+                const highlightNode = d3.select(this).classed("highlight", true);
+                moveToFront(highlightNode);
+                updateNodeWithHighlight(highlightNode, d);
+
+                d3.selectAll(".node").filter(n => sourceNodes.includes(n.id))
+                    .classed("highlight", true)
+                    .each(function(n) {
+                        const node = d3.select(this);
+                        moveToFront(node);
+                        updateNodeWithHighlight(node, n);
+                    });
+            }).on("mouseout", function(event, d) {
+                d3.select(this).style("cursor", "default");
+                link.classed("highlight", false)
+                    .attr("stroke", "#ccc");
+
+                const highlightNode = d3.select(this).classed("highlight", false);
+                updateNodeWithoutHighlight(highlightNode, d);
+
+                const sourceNodes = data.links.filter(l => l.target === d.id).map(l => l.source);
+                d3.selectAll(".node").filter(n => sourceNodes.includes(n.id))
+                    .classed("highlight", false)
+                    .each(function(n) {
+                        updateNodeWithoutHighlight(d3.select(this), n);
+                    });
+            });
+
+            function updateNodeWithHighlight(node, d) {
+                const textNode = node.select("text");
+                textNode.text(`[${d.originalText}] (${d.id})`);
+                updateNodeRect(node);
+            }
+
+            function updateNodeWithoutHighlight(node, d) {
+                node.select("text").text(d.originalText);
+                updateNodeRect(node);
+            }
+
+            function updateNodeRect(node) {
+                const textNode = node.select("text");
+                const textBox = textNode.node().getBBox();
+                node.select("rect")
+                    .attr("width", textBox.width + 10)
+                    .attr("height", textBox.height + 5)
+                    .attr("x", textBox.x - 5)
+                    .attr("y", textBox.y - 2.5);
+            }
+
+            function moveToFront(node) {
+                node.each(function() {
+                    this.parentNode.appendChild(this);
+                });
+            }
+
+            function updatePositions() {
+                link.attr("d", d => {
+                    const source = data.nodes.find(n => n.id === d.source);
+                    const target = data.nodes.find(n => n.id === d.target);
+                    if (!source || !target) return;
+
+                    const curvature = 0.5;
+                    const x0 = source.x, y0 = source.y;
+                    const x1 = target.x, y1 = target.y;
+                    const yi = d3.interpolateNumber(y0, y1);
+                    const y2 = yi(curvature);
+                    const y3 = yi(1 - curvature);
+                    return `M${x0},${y0}C${x0},${y2} ${x1},${y3} ${x1},${y1}`;
+                });
+
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
+            }
+
+            updatePositions();
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        });
+    </script>
+</body>
+</html>
